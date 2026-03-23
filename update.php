@@ -1,81 +1,69 @@
 <?php
 
-
+/**
+ * Inclui o arquivo de conexão com o banco de dados.
+ */
 require __DIR__ . "/connect.php";
 
 /**
- * ALTERAÇÃO:
- * Uso de filter_input para validar o ID como inteiro.
- * Isso é pra evita que valores inválidos sejam processados.
+ * Captura e valida o ID enviado pelo formulário via POST.
+ * O ID deve ser um número inteiro válido.
  */
 $id = filter_input(INPUT_POST, "id", FILTER_VALIDATE_INT);
 
 /**
- * ALTERAÇÃO:
- * Uso de filter_input para capturar os dados com mais segurança.
- * - name e document são strings
- * - email é validado com FILTER_VALIDATE_EMAIL
+ * Captura os demais dados enviados pelo formulário.
+ *
+ * trim() remove espaços em branco no início e no fim.
+ * O operador ?? "" garante valor padrão caso o índice não exista.
  */
-$name = trim(filter_input(INPUT_POST, "name"));
-$email = trim(filter_input(INPUT_POST, "email", FILTER_VALIDATE_EMAIL));
-$document = trim(filter_input(INPUT_POST, "document"));
+$name = trim($_POST["name"] ?? "");
+$email = trim($_POST["email"] ?? "");
+$document = trim($_POST["document"] ?? "");
 
 /**
- * ALTERAÇÃO IMPORTANTE:
- * Remoção do die() e substituição por redirecionamento.
- * Isso melhora a experiência do usuário e mantém o fluxo da aplicação.
+ * Validação básica:
+ * - o ID precisa ser válido
+ * - nome, e-mail e curso não podem estar vazios
  */
-if (!$id || !$name || !$email || !$document) {
-    header("Location: index.php?error=1");
-    exit;
+if (!$id || $name === "" || $email === "" || $document === "") {
+    die("Dados inválidos.");
 }
 
-try {
+/**
+ * Obtém a conexão com o banco de dados.
+ */
+$pdo = Connect::getInstance();
 
-    /**
-     * Conexão com o banco utilizando a classe Connect.
-     */
-    $pdo = Connect::getInstance();
+/**
+ * Prepara a instrução SQL de atualização.
+ *
+ * O registro será atualizado com base no ID recebido.
+ */
+$stmt = $pdo->prepare("
+    UPDATE users
+    SET name = :name, email = :email, document = :document
+    WHERE id = :id
+");
 
-   
-    $stmt = $pdo->prepare("
-        UPDATE users
-        SET name = :name,
-            email = :email,
-            document = :document
-        WHERE id = :id
-    ");
+/**
+ * Executa a instrução preparada, enviando os valores
+ * para os respectivos placeholders.
+ */
+$stmt->execute([
+    ":id" => $id,
+    ":name" => $name,
+    ":email" => $email,
+    ":document" => $document
+]);
 
-    /**
-     * Execução da query com parâmetros nomeados.
-     */
-    $updated = $stmt->execute([
-        ":id" => $id,
-        ":name" => $name,
-        ":email" => $email,
-        ":document" => $document
-    ]);
+/**
+ * Redireciona o usuário para a página principal
+ * após a atualização.
+ */
+header("Location: index.php");
 
-    /**
-     * ALTERAÇÃO:
-     * Adicionado feedback ao usuário.
-     * success=2 indica atualização realizada com sucesso.
-     */
-    if ($updated) {
-        header("Location: index.php?success=2");
-    } else {
-        header("Location: index.php?error=2");
-    }
-
-} catch (Exception $e) {
-
-    /**
-     * ALTERAÇÃO IMPORTANTE:
-     * Tratamento de erro com try/catch.
-     * Evita quebra do sistema e melhora robustez.
-     */
-    header("Location: index.php?error=3");
-}
-
-
+/**
+ * Encerra a execução do script.
+ */
 exit;
